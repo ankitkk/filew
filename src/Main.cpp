@@ -55,9 +55,15 @@ int main(int argc, char* argv[])
     std::set<std::string>    old_cache;
     std::set<std::string>    new_cache;
 
+    std::set<std::string>    old_cache_files;
+    std::set<std::string>    new_cache_files;
+
+
     for (std::string line; std::getline(cache_stream, line); )
     {
-        old_cache.insert(line + "\n");
+         std::string name_file = line.substr(0, line.find("+"));
+         old_cache.insert(line + "\n");
+         old_cache_files.insert(name_file);
     }
 
     using directory_iterator = std::filesystem::recursive_directory_iterator;
@@ -79,6 +85,7 @@ int main(int argc, char* argv[])
                 std::string          raw_data(std::istreambuf_iterator<char>{file_reader}, {});
 
                 new_cache.insert(entry->path().string() + std::string("+") + md5(raw_data) + "\n");
+                new_cache_files.insert( entry->path().string() );
             }
 
         }
@@ -87,16 +94,19 @@ int main(int argc, char* argv[])
         }
     }
 
-    // changed files.
-    std::vector<std::string> v_intersection;
+    // changed files. ( or added )
+    std::vector<std::string> changed_files;
+
+    // deleted files. 
+    std::vector<std::string> deleted_files;
 
     std::set_difference(
                           new_cache.begin(), new_cache.end(),
                           old_cache.begin(), old_cache.end(),
-                          std::back_inserter(v_intersection)
+                          std::back_inserter(changed_files)
                        );
 
-    for (auto& cache_line : v_intersection)
+    for (auto& cache_line : changed_files)
     {
         std::string name_file = cache_line.substr(0, cache_line.find("+"));
         std::cout << name_file << "\n";
@@ -106,10 +116,25 @@ int main(int argc, char* argv[])
 
     for (auto& cache_line : new_cache)
     {
-        cache_out_stream << cache_line << "\n";
+        cache_out_stream << cache_line << " m\n";
     }
 
     cache_stream.close();
+
+    std::set_difference(
+                      old_cache_files.begin(), old_cache_files.end(),
+                      new_cache_files.begin(), new_cache_files.end(),
+                      std::back_inserter(deleted_files)
+                   );
+
+    for (auto& deleted_file : deleted_files)
+    {
+        std::cout << deleted_file << " d\n";
+    }
+
+    // find the deleted files. 
+
+
 
     // update the cache.
 
